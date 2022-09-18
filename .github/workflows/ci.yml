@@ -9,7 +9,7 @@ env:
 
 jobs:
   build_and_test:
-    name: Rust project - latest
+    name: DeepsEngineNeo CI
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,6 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
+          sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev wayland-protocols libwayland-dev libxkbcommon-dev
           sudo apt install libglfw3
           sudo apt install libglfw3-dev
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
