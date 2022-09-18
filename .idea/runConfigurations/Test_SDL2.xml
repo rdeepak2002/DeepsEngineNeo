@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Expand DeepsEngineNeo" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="expand --bin DeepsEngineNeo --color=always --theme=Dracula --tests" />
+  <configuration default="false" name="Test SDL2" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="test --features=sdl2" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
