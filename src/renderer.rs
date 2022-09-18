@@ -5,7 +5,5 @@ pub(crate) trait Renderer {
 pub(crate) struct OpenGLRenderer();
 
 impl Renderer for OpenGLRenderer {
-    fn update(&self) {
-        println!("update!");
-    }
+    fn update(&self) {}
 }

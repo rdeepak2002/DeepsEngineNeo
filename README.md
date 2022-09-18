@@ -15,3 +15,11 @@ Deepak Ramalingam
 ## About
 
 Recreation of [DeepsEngine](https://github.com/rdeepak2002/DeepsEngine) in Rust
+
+## Common Problems
+
+- SDL2 not working on MacOS after installing it via brew
+  - Solution: Add the following to your ~/.zshrc file
+```shell
+export LIBRARY_PATH="$LIBRARY_PATH:/opt/homebrew/lib"
+```
