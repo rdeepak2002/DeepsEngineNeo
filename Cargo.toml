@@ -1,5 +1,5 @@
 [package]
-name = "DeepsEngineNeo"
+name = "deeps_engine_neo"
 version = "0.1.0"
 edition = "2021"
 
