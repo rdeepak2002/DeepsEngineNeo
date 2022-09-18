@@ -16,10 +16,25 @@ Deepak Ramalingam
 
 Recreation of [DeepsEngine](https://github.com/rdeepak2002/DeepsEngine) in Rust
 
+## Requirements
+
+- [Rust](https://www.rust-lang.org/tools/install) 
+- [SDL2](https://wiki.libsdl.org/Installation)
+- wasm32-unknown-unknown target for Rust
+  - Installation command:
+```shell
+rustup target add wasm32-unknown-unknown
+```
+- wasm-bindgen-cli
+  - Installation command:
+```shell
+cargo install -f wasm-bindgen-cli
+```
+
 ## Common Problems
 
-- SDL2 not working on MacOS after installing it via brew
-  - Solution: Add the following to your ~/.zshrc file
+- [SDL2](https://wiki.libsdl.org/Installation) has undefined symbols on macOS after installing it via [Homebrew](https://brew.sh/)
+  - Solution: Add the following to your ```~/.zshrc``` file
 ```shell
 export LIBRARY_PATH="$LIBRARY_PATH:/opt/homebrew/lib"
 ```
