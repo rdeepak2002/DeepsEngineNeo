@@ -13,16 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
           sudo apt update -y
           sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev wayland-protocols libwayland-dev libxkbcommon-dev -y
           sudo apt-get install libsdl2-dev -y
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: rustup target add wasm32-unknown-unknown
-      - run: cargo install -f wasm-bindgen-cli
-      - run: cargo build --verbose
-      - run: cargo build --target wasm32-unknown-unknown --verbose
-      - run: cargo test --verbose
-      - run: cargo fmt --all -- --check
+      - name: Install Rust dependencies and toolchains
+        run: |
+          rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+          rustup target add wasm32-unknown-unknown
+          cargo install -f wasm-bindgen-cli
+      - name: Build desktop
+        run: cargo build  --features=sdl2 --verbose
+      - name: Build web
+        run: cargo build --target wasm32-unknown-unknown --verbose
+      - name: Tests
+        run: cargo test --verbose
+      - name: Style check
+        run: cargo fmt --all -- --check
