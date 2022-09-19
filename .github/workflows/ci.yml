@@ -1,4 +1,4 @@
-name: Cargo Build & Test
+name: Build, Test, and Style Check
 
 on:
   push:
