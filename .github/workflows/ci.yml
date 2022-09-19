@@ -1,4 +1,4 @@
-name: Build, Test, and Style Check
+name: Build, Test, Style Check
 
 on:
   push:
