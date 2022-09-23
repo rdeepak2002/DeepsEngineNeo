@@ -26,7 +26,7 @@ pub(crate) fn create_sdl2_context() -> (Context, sdl2::video::Window, EventPump,
 
 pub fn init() {
     unsafe {
-        let (mut gl, mut window, mut events_loop, mut gl_context) = create_sdl2_context();
+        let (gl, window, mut events_loop, gl_context) = create_sdl2_context();
 
         println!("using gl {}.{}", gl.version().major, gl.version().minor);
 
