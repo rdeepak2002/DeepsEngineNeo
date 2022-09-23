@@ -1,5 +1,5 @@
 mod renderer;
-// use crate::renderer::Renderer;
+use crate::renderer::*;
 use glow::*;
 
 fn main() {
@@ -9,7 +9,8 @@ fn main() {
         // We handle events differently between targets
         #[cfg(feature = "sdl2")]
         {
-            renderer::init();
+            let mut renderer = OpenGLRenderer::new();
+            renderer.init();
 
             // while !renderer.should_close() {
             //     renderer.update();
