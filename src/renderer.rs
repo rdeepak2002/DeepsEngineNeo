@@ -44,23 +44,24 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn init(&mut self) {
-        let gl = &self.gl;
-        let window = &self.window;
-        let events_loop = &mut self.events_loop;
+        // let gl = &self.gl;
+        // let window = &self.window;
+        // let events_loop = &mut self.events_loop;
 
-        println!("gl {}.{}", gl.version().major, gl.version().minor);
+        println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
 
         // let gl = &self.gl;
         let shader_version = "#version 330";
         // let events_loop = &self.events_loop;
         // let window = &self.window;
 
-        let vertex_array = gl
+        let vertex_array = self
+            .gl
             .create_vertex_array()
             .expect("Cannot create vertex array");
-        gl.bind_vertex_array(Some(vertex_array));
+        self.gl.bind_vertex_array(Some(vertex_array));
 
-        let program = gl.create_program().expect("Cannot create program");
+        let program = self.gl.create_program().expect("Cannot create program");
 
         let (vertex_shader_source, fragment_shader_source) = (
             r#"const vec2 verts[3] = vec2[3](
@@ -89,30 +90,32 @@ impl OpenGLRenderer {
         let mut shaders = Vec::with_capacity(shader_sources.len());
 
         for (shader_type, shader_source) in shader_sources.iter() {
-            let shader = gl
+            let shader = self
+                .gl
                 .create_shader(*shader_type)
                 .expect("Cannot create shader");
-            gl.shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
-            gl.compile_shader(shader);
-            if !gl.get_shader_compile_status(shader) {
-                panic!("{}", gl.get_shader_info_log(shader));
+            self.gl
+                .shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+            self.gl.compile_shader(shader);
+            if !self.gl.get_shader_compile_status(shader) {
+                panic!("{}", self.gl.get_shader_info_log(shader));
             }
-            gl.attach_shader(program, shader);
+            self.gl.attach_shader(program, shader);
             shaders.push(shader);
         }
 
-        gl.link_program(program);
-        if !gl.get_program_link_status(program) {
-            panic!("{}", gl.get_program_info_log(program));
+        self.gl.link_program(program);
+        if !self.gl.get_program_link_status(program) {
+            panic!("{}", self.gl.get_program_info_log(program));
         }
 
         for shader in shaders {
-            gl.detach_shader(program, shader);
-            gl.delete_shader(shader);
+            self.gl.detach_shader(program, shader);
+            self.gl.delete_shader(shader);
         }
 
-        gl.use_program(Some(program));
-        gl.clear_color(0.1, 0.2, 0.3, 1.0);
+        self.gl.use_program(Some(program));
+        self.gl.clear_color(0.1, 0.2, 0.3, 1.0);
 
         // We handle events differently between targets
 
@@ -156,7 +159,7 @@ impl OpenGLRenderer {
             let mut running = true;
             while running {
                 {
-                    for event in events_loop.poll_iter() {
+                    for event in self.events_loop.poll_iter() {
                         match event {
                             sdl2::event::Event::Quit { .. } => running = false,
                             _ => {}
@@ -164,13 +167,13 @@ impl OpenGLRenderer {
                     }
                 }
 
-                gl.clear(glow::COLOR_BUFFER_BIT);
-                gl.draw_arrays(glow::TRIANGLES, 0, 3);
-                window.gl_swap_window();
+                self.gl.clear(glow::COLOR_BUFFER_BIT);
+                self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
+                self.window.gl_swap_window();
 
                 if !running {
-                    gl.delete_program(program);
-                    gl.delete_vertex_array(vertex_array);
+                    self.gl.delete_program(program);
+                    self.gl.delete_vertex_array(vertex_array);
                 }
             }
         }
