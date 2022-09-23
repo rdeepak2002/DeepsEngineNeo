@@ -48,7 +48,7 @@ impl OpenGLRenderer {
         let window = &self.window;
         let events_loop = &mut self.events_loop;
 
-        println!("using gl {}.{}", gl.version().major, gl.version().minor);
+        println!("gl {}.{}", gl.version().major, gl.version().minor);
 
         // let gl = &self.gl;
         let shader_version = "#version 330";
