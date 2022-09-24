@@ -1,4 +1,3 @@
-// use crate::window::{WebGL2Window, Window};
 use glow::HasContext;
 
 #[cfg(feature = "sdl2")]
