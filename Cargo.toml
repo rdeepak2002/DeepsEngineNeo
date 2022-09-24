@@ -1,10 +1,22 @@
 [package]
-name = "deeps_engine_neo"
+name = "DeepsEngineNeo"
 version = "0.1.0"
+authors = ["rdeepak2002 <rdeepak2002@gmail.com>"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "DeepsEngineNeo"
+path = "src/main.rs"
 
 [dependencies]
-gl = "0.14.0"
-glfw = "0.45.0"
+glow = "0.11.2"
+
+[target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
+sdl2 = { version = "0.35", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features=["HtmlCanvasElement", "WebGl2RenderingContext", "Window"] }
+wasm-bindgen = { version = "0.2" }
+
+[dependencies.lazy_static]
+git = "https://github.com/Kimundi/lazy-static.rs"
