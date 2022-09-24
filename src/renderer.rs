@@ -1,3 +1,4 @@
+use crate::window::Window;
 use glow::HasContext;
 
 #[cfg(feature = "sdl2")]
@@ -16,8 +17,13 @@ pub(crate) fn create_sdl2_context() -> (glow::Context, crate::window::SDL2Window
     let gl_context = window.gl_create_context().unwrap();
     unsafe {
         let gl = glow::Context::from_loader_function(|s| video.gl_get_proc_address(s) as *const _);
-        let event_loop = sdl.event_pump().unwrap();
-        let sdl_window = crate::window::SDL2Window::new(gl_context, window, event_loop);
+        let events_loop = sdl.event_pump().unwrap();
+        let sdl_window = crate::window::SDL2Window {
+            gl_context,
+            window,
+            events_loop,
+            should_close: false,
+        };
         return (gl, sdl_window);
     }
 }
@@ -47,7 +53,7 @@ pub(crate) fn create_webgl_context() -> glow::Context {
 pub struct OpenGLRenderer {
     gl: glow::Context,
     #[cfg(feature = "sdl2")]
-    sdl2_window: crate::window::SDL2Window,
+    window: Box<dyn Window>,
     program: Option<glow::Program>,
     vertex_array: Option<glow::VertexArray>,
 }
@@ -60,7 +66,7 @@ impl OpenGLRenderer {
 
             Self {
                 gl,
-                sdl2_window,
+                window: Box::new(sdl2_window),
                 program: None,
                 vertex_array: None,
             }
@@ -168,7 +174,7 @@ impl OpenGLRenderer {
     pub fn swap_buffers(&self) {
         #[cfg(feature = "sdl2")]
         {
-            self.sdl2_window.swap_buffers();
+            self.window.swap_buffers();
         }
     }
 
@@ -176,8 +182,8 @@ impl OpenGLRenderer {
         #[cfg(feature = "sdl2")]
         {
             // TODO: move poll events call elsewhere
-            self.sdl2_window.poll_events();
-            return self.sdl2_window.should_close();
+            self.window.poll_events();
+            return self.window.should_close();
         }
 
         #[cfg(target_arch = "wasm32")]

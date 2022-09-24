@@ -1,31 +1,24 @@
-#[cfg(feature = "sdl2")]
-pub(crate) struct SDL2Window {
-    gl_context: sdl2::video::GLContext,
-    window: sdl2::video::Window,
-    events_loop: sdl2::EventPump,
-    should_close: bool,
+pub(crate) trait Window {
+    fn swap_buffers(&self);
+    fn poll_events(&mut self);
+    fn should_close(&self) -> bool;
 }
 
 #[cfg(feature = "sdl2")]
-impl SDL2Window {
-    pub fn new(
-        gl_context: sdl2::video::GLContext,
-        window: sdl2::video::Window,
-        events_loop: sdl2::EventPump,
-    ) -> Self {
-        Self {
-            gl_context,
-            window,
-            events_loop,
-            should_close: false,
-        }
-    }
+pub(crate) struct SDL2Window {
+    pub gl_context: sdl2::video::GLContext,
+    pub window: sdl2::video::Window,
+    pub events_loop: sdl2::EventPump,
+    pub should_close: bool,
+}
 
-    pub fn swap_buffers(&self) {
+#[cfg(feature = "sdl2")]
+impl Window for SDL2Window {
+    fn swap_buffers(&self) {
         self.window.gl_swap_window();
     }
 
-    pub fn poll_events(&mut self) {
+    fn poll_events(&mut self) {
         for event in self.events_loop.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => self.should_close = true,
@@ -34,7 +27,7 @@ impl SDL2Window {
         }
     }
 
-    pub fn should_close(&self) -> bool {
+    fn should_close(&self) -> bool {
         return self.should_close;
     }
 }
