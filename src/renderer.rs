@@ -1,28 +1,35 @@
 use glow::*;
 
 #[cfg(feature = "sdl2")]
-pub(crate) fn create_sdl2_context() -> (
-    Context,
-    sdl2::video::Window,
-    sdl2::EventPump,
-    sdl2::video::GLContext,
-) {
+pub(crate) struct SDL2Window {
+    sdl2_gl_context: sdl2::video::GLContext,
+    window: sdl2::video::Window,
+    events_loop: sdl2::EventPump,
+}
+
+#[cfg(feature = "sdl2")]
+pub(crate) fn create_sdl2_context() -> (Context, SDL2Window) {
+    let sdl = sdl2::init().unwrap();
+    let video = sdl.video().unwrap();
+    let gl_attr = video.gl_attr();
+    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+    gl_attr.set_context_version(3, 0);
+    let window = video
+        .window("Hello triangle!", 1024, 769)
+        .opengl()
+        .resizable()
+        .build()
+        .unwrap();
+    let gl_context = window.gl_create_context().unwrap();
     unsafe {
-        let sdl = sdl2::init().unwrap();
-        let video = sdl.video().unwrap();
-        let gl_attr = video.gl_attr();
-        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-        gl_attr.set_context_version(3, 0);
-        let window = video
-            .window("Hello triangle!", 1024, 769)
-            .opengl()
-            .resizable()
-            .build()
-            .unwrap();
-        let gl_context = window.gl_create_context().unwrap();
         let gl = glow::Context::from_loader_function(|s| video.gl_get_proc_address(s) as *const _);
         let event_loop = sdl.event_pump().unwrap();
-        return (gl, window, event_loop, gl_context);
+        let sdl_window = SDL2Window {
+            sdl2_gl_context: gl_context,
+            window,
+            events_loop: event_loop,
+        };
+        return (gl, sdl_window);
     }
 }
 
@@ -50,25 +57,20 @@ pub(crate) fn create_webgl_context() -> (Context) {
 pub struct OpenGLRenderer {
     gl: Context,
     #[cfg(feature = "sdl2")]
-    sdl2_gl_context: Option<sdl2::video::GLContext>,
-    #[cfg(feature = "sdl2")]
-    window: sdl2::video::Window,
-    #[cfg(feature = "sdl2")]
-    events_loop: sdl2::EventPump,
-    program: Option<glow::Program>,
-    vertex_array: Option<glow::VertexArray>,
+    sdl2_window: SDL2Window,
+    program: Option<Program>,
+    vertex_array: Option<VertexArray>,
 }
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
         #[cfg(feature = "sdl2")]
         {
-            let (gl, window, events_loop, gl_context) = create_sdl2_context();
+            let (gl, sdl2_window) = create_sdl2_context();
+
             Self {
                 gl,
-                sdl2_gl_context: Some(gl_context),
-                window,
-                events_loop,
+                sdl2_window,
                 program: None,
                 vertex_array: None,
             }
@@ -177,17 +179,17 @@ impl OpenGLRenderer {
         }
     }
 
-    pub unsafe fn swap_buffers(&self) {
+    pub fn swap_buffers(&self) {
         #[cfg(feature = "sdl2")]
         {
-            self.window.gl_swap_window();
+            self.sdl2_window.window.gl_swap_window();
         }
     }
 
     pub fn should_close(&mut self) -> bool {
         #[cfg(feature = "sdl2")]
         {
-            for event in self.events_loop.poll_iter() {
+            for event in self.sdl2_window.events_loop.poll_iter() {
                 match event {
                     sdl2::event::Event::Quit { .. } => return true,
                     _ => {}
