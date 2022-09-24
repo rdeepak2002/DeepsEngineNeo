@@ -2,7 +2,7 @@
 use glow::HasContext;
 
 #[cfg(feature = "sdl2")]
-pub(crate) fn create_sdl2_context() -> (glow::Context, crate::window::SDL2Window) {
+pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
@@ -24,12 +24,12 @@ pub(crate) fn create_sdl2_context() -> (glow::Context, crate::window::SDL2Window
             events_loop,
             should_close: false,
         };
-        return (gl, sdl_window);
+        return (gl, Box::new(sdl_window));
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn create_webgl_context() -> (glow::Context, crate::window::WebGL2Window) {
+pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
     use wasm_bindgen::JsCast;
     let canvas = web_sys::window()
         .unwrap()
@@ -47,7 +47,7 @@ pub(crate) fn create_webgl_context() -> (glow::Context, crate::window::WebGL2Win
         .unwrap();
     let gl = glow::Context::from_webgl2_context(webgl2_context);
     let web_gl2_window = crate::window::WebGL2Window {};
-    return (gl, web_gl2_window);
+    return (gl, Box::new(web_gl2_window));
 }
 
 // TODO: create general Renderer interface
@@ -60,34 +60,19 @@ pub struct OpenGLRenderer {
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
-        #[cfg(feature = "sdl2")]
-        {
-            let (gl, sdl2_window) = create_sdl2_context();
+        let (gl, window) = create_gl_context();
 
-            Self {
-                gl,
-                window: Box::new(sdl2_window),
-                program: None,
-                vertex_array: None,
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let (gl, web_gl2_window) = create_webgl_context();
-
-            Self {
-                gl,
-                window: Box::new(web_gl2_window),
-                program: None,
-                vertex_array: None,
-            }
+        Self {
+            gl,
+            window,
+            program: None,
+            vertex_array: None,
         }
     }
 
-    pub unsafe fn init(&mut self) {
-        // TODO: create logging system
-        println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
+    pub unsafe fn compile_shaders(&mut self) {
+        let gl_version = format!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
+        crate::log::debug(gl_version.as_str());
 
         let vertex_array = self
             .gl
@@ -150,12 +135,11 @@ impl OpenGLRenderer {
             self.gl.detach_shader(program, shader);
             self.gl.delete_shader(shader);
         }
-
-        self.gl.use_program(Some(program));
-        self.gl.clear_color(0.2, 0.2, 0.3, 1.0);
     }
 
     pub unsafe fn update(&self) {
+        self.gl.use_program(self.program);
+        self.gl.clear_color(0.02, 0.2, 0.3, 1.0);
         self.gl.clear(glow::COLOR_BUFFER_BIT);
         self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
     }
@@ -176,8 +160,11 @@ impl OpenGLRenderer {
         self.window.swap_buffers();
     }
 
-    pub fn should_close(&mut self) -> bool {
+    pub fn poll_events(&mut self) {
         self.window.poll_events();
+    }
+
+    pub fn should_close(&self) -> bool {
         return self.window.should_close();
     }
 
