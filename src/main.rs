@@ -1,19 +1,17 @@
+mod log;
 mod renderer;
-
-use crate::renderer::*;
+mod window;
 
 fn main() {
     unsafe {
-        let mut renderer = OpenGLRenderer::new();
+        let mut renderer = renderer::OpenGLRenderer::new();
         renderer.init();
 
-        while !renderer.should_close() {
+        loop {
             renderer.update();
             renderer.swap_buffers();
-
-            // TODO: call update from request animation frame
-            #[cfg(target_arch = "wasm32")]
-            {
+            if renderer.should_close() {
+                renderer.destroy();
                 break;
             }
         }

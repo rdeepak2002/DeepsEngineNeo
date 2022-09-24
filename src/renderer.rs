@@ -1,21 +1,14 @@
-use glow::*;
+use glow::HasContext;
 
 #[cfg(feature = "sdl2")]
-pub(crate) struct SDL2Window {
-    sdl2_gl_context: sdl2::video::GLContext,
-    window: sdl2::video::Window,
-    events_loop: sdl2::EventPump,
-}
-
-#[cfg(feature = "sdl2")]
-pub(crate) fn create_sdl2_context() -> (Context, SDL2Window) {
+pub(crate) fn create_sdl2_context() -> (glow::Context, crate::window::SDL2Window) {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 0);
     let window = video
-        .window("Hello triangle!", 1024, 769)
+        .window("DeepsEngine", 1024, 769)
         .opengl()
         .resizable()
         .build()
@@ -24,17 +17,13 @@ pub(crate) fn create_sdl2_context() -> (Context, SDL2Window) {
     unsafe {
         let gl = glow::Context::from_loader_function(|s| video.gl_get_proc_address(s) as *const _);
         let event_loop = sdl.event_pump().unwrap();
-        let sdl_window = SDL2Window {
-            sdl2_gl_context: gl_context,
-            window,
-            events_loop: event_loop,
-        };
+        let sdl_window = crate::window::SDL2Window::new(gl_context, window, event_loop);
         return (gl, sdl_window);
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn create_webgl_context() -> (Context) {
+pub(crate) fn create_webgl_context() -> glow::Context {
     use wasm_bindgen::JsCast;
     let canvas = web_sys::window()
         .unwrap()
@@ -54,12 +43,13 @@ pub(crate) fn create_webgl_context() -> (Context) {
     return gl;
 }
 
+// TODO: create general Renderer interface
 pub struct OpenGLRenderer {
-    gl: Context,
+    gl: glow::Context,
     #[cfg(feature = "sdl2")]
-    sdl2_window: SDL2Window,
-    program: Option<Program>,
-    vertex_array: Option<VertexArray>,
+    sdl2_window: crate::window::SDL2Window,
+    program: Option<glow::Program>,
+    vertex_array: Option<glow::VertexArray>,
 }
 
 impl OpenGLRenderer {
@@ -124,13 +114,6 @@ impl OpenGLRenderer {
             (glow::FRAGMENT_SHADER, fragment_shader_source),
         ];
 
-        let mut shader_version = "#version 330";
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            shader_version = "#version 300 es";
-        }
-
         let mut shaders = Vec::with_capacity(shader_sources.len());
 
         for (shader_type, shader_source) in shader_sources.iter() {
@@ -138,8 +121,10 @@ impl OpenGLRenderer {
                 .gl
                 .create_shader(*shader_type)
                 .expect("Cannot create shader");
-            self.gl
-                .shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+            self.gl.shader_source(
+                shader,
+                &format!("{}\n{}", self.get_glsl_version(), shader_source),
+            );
             self.gl.compile_shader(shader);
             if !self.gl.get_shader_compile_status(shader) {
                 panic!("{}", self.gl.get_shader_info_log(shader));
@@ -182,21 +167,31 @@ impl OpenGLRenderer {
     pub fn swap_buffers(&self) {
         #[cfg(feature = "sdl2")]
         {
-            self.sdl2_window.window.gl_swap_window();
+            self.sdl2_window.swap_buffers();
         }
     }
 
     pub fn should_close(&mut self) -> bool {
         #[cfg(feature = "sdl2")]
         {
-            for event in self.sdl2_window.events_loop.poll_iter() {
-                match event {
-                    sdl2::event::Event::Quit { .. } => return true,
-                    _ => {}
-                }
-            }
+            // TODO: move poll events call elsewhere
+            self.sdl2_window.poll_events();
+            return self.sdl2_window.should_close();
         }
 
-        return false;
+        #[cfg(target_arch = "wasm32")]
+        {
+            return true;
+        }
+    }
+
+    fn get_glsl_version(&self) -> &str {
+        if cfg!(target_arch = "wasm32") {
+            return "#version 300 es";
+        } else if cfg!(feature = "sdl2") {
+            return "#version 330";
+        } else {
+            panic!("Unable to determine shader version");
+        }
     }
 }
