@@ -1,4 +1,4 @@
-use crate::window::Window;
+// use crate::window::{WebGL2Window, Window};
 use glow::HasContext;
 
 #[cfg(feature = "sdl2")]
@@ -29,7 +29,7 @@ pub(crate) fn create_sdl2_context() -> (glow::Context, crate::window::SDL2Window
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn create_webgl_context() -> glow::Context {
+pub(crate) fn create_webgl_context() -> (glow::Context, crate::window::WebGL2Window) {
     use wasm_bindgen::JsCast;
     let canvas = web_sys::window()
         .unwrap()
@@ -46,14 +46,14 @@ pub(crate) fn create_webgl_context() -> glow::Context {
         .dyn_into::<web_sys::WebGl2RenderingContext>()
         .unwrap();
     let gl = glow::Context::from_webgl2_context(webgl2_context);
-    return gl;
+    let web_gl2_window = crate::window::WebGL2Window {};
+    return (gl, web_gl2_window);
 }
 
 // TODO: create general Renderer interface
 pub struct OpenGLRenderer {
     gl: glow::Context,
-    #[cfg(feature = "sdl2")]
-    window: Box<dyn Window>,
+    window: Box<dyn crate::window::Window>,
     program: Option<glow::Program>,
     vertex_array: Option<glow::VertexArray>,
 }
@@ -74,10 +74,11 @@ impl OpenGLRenderer {
 
         #[cfg(target_arch = "wasm32")]
         {
-            let gl = create_webgl_context();
+            let (gl, web_gl2_window) = create_webgl_context();
 
             Self {
                 gl,
+                window: Box::new(web_gl2_window),
                 program: None,
                 vertex_array: None,
             }
@@ -151,7 +152,7 @@ impl OpenGLRenderer {
         }
 
         self.gl.use_program(Some(program));
-        self.gl.clear_color(0.1, 0.2, 0.3, 1.0);
+        self.gl.clear_color(0.2, 0.2, 0.3, 1.0);
     }
 
     pub unsafe fn update(&self) {
@@ -172,24 +173,12 @@ impl OpenGLRenderer {
     }
 
     pub fn swap_buffers(&self) {
-        #[cfg(feature = "sdl2")]
-        {
-            self.window.swap_buffers();
-        }
+        self.window.swap_buffers();
     }
 
     pub fn should_close(&mut self) -> bool {
-        #[cfg(feature = "sdl2")]
-        {
-            // TODO: move poll events call elsewhere
-            self.window.poll_events();
-            return self.window.should_close();
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            return true;
-        }
+        self.window.poll_events();
+        return self.window.should_close();
     }
 
     fn get_glsl_version(&self) -> &str {
