@@ -1,38 +1,5 @@
 use glow::*;
 
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-
-    // The `console.log` is quite polymorphic, so we can bind it with multiple
-    // signatures. Note that we need to use `js_name` to ensure we always call
-    // `log` in JS.
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    fn log_u32(a: u32);
-
-    // Multiple arguments too!
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    fn log_many(a: &str, b: &str);
-}
-
-// pub struct WebGlContexts {
-//     contexts: Vec<web_sys::WebGl2RenderingContext>,
-// }
-//
-// unsafe impl Send for WebGlContexts {}
-// unsafe impl Sync for WebGlContexts {}
-//
-// lazy_static! {
-//     static ref TMP: WebGlContexts = WebGlContexts {
-//         contexts: Vec::new(),
-//     };
-// }
-
 #[cfg(feature = "sdl2")]
 pub(crate) fn create_sdl2_context() -> (
     Context,
@@ -40,7 +7,6 @@ pub(crate) fn create_sdl2_context() -> (
     sdl2::EventPump,
     sdl2::video::GLContext,
 ) {
-    // Create a context from a sdl2 window
     unsafe {
         let sdl = sdl2::init().unwrap();
         let video = sdl.video().unwrap();
@@ -60,27 +26,26 @@ pub(crate) fn create_sdl2_context() -> (
     }
 }
 
-// #[cfg(target_arch = "wasm32")]
-// pub(crate) fn create_webgl_context() -> (Context) {
-//     use wasm_bindgen::JsCast;
-//     let canvas = web_sys::window()
-//         .unwrap()
-//         .document()
-//         .unwrap()
-//         .get_element_by_id("canvas")
-//         .unwrap()
-//         .dyn_into::<web_sys::HtmlCanvasElement>()
-//         .unwrap();
-//     let webgl2_context = canvas
-//         .get_context("webgl2")
-//         .unwrap()
-//         .unwrap()
-//         .dyn_into::<web_sys::WebGl2RenderingContext>()
-//         .unwrap();
-//     let gl = glow::Context::from_webgl2_context(webgl2_context);
-//
-//     return gl;
-// }
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn create_webgl_context() -> (Context) {
+    use wasm_bindgen::JsCast;
+    let canvas = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id("canvas")
+        .unwrap()
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .unwrap();
+    let webgl2_context = canvas
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    let gl = glow::Context::from_webgl2_context(webgl2_context);
+    return gl;
+}
 
 pub struct OpenGLRenderer {
     gl: Context,
@@ -95,7 +60,7 @@ pub struct OpenGLRenderer {
 }
 
 impl OpenGLRenderer {
-    pub fn new(gl: Context) -> Self {
+    pub fn new() -> Self {
         #[cfg(feature = "sdl2")]
         {
             let (gl, window, events_loop, gl_context) = create_sdl2_context();
@@ -109,13 +74,9 @@ impl OpenGLRenderer {
             }
         }
 
-        // #[cfg(target_arch = "wasm32")]
+        #[cfg(target_arch = "wasm32")]
         {
-            log("Flag C");
-
-            // let gl = create_webgl_context();
-            // let gl = glow::Context::from_webgl2_context(webgl2_context);
-            // let gl = std::rc::Rc::new(gl);
+            let gl = create_webgl_context();
 
             Self {
                 gl,
@@ -126,11 +87,7 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn init(&mut self) {
-        log("Flag D");
-
         println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
-
-        log("Flag E");
 
         let vertex_array = self
             .gl
@@ -140,8 +97,6 @@ impl OpenGLRenderer {
         self.vertex_array = Some(vertex_array);
         let program = self.gl.create_program().expect("Cannot create program");
         self.program = Some(program);
-
-        log("Flag F");
 
         let (vertex_shader_source, fragment_shader_source) = (
             r#"const vec2 verts[3] = vec2[3](
@@ -166,8 +121,6 @@ impl OpenGLRenderer {
             (glow::VERTEX_SHADER, vertex_shader_source),
             (glow::FRAGMENT_SHADER, fragment_shader_source),
         ];
-
-        log("Flag G");
 
         let mut shader_version = "#version 330";
 
@@ -205,8 +158,6 @@ impl OpenGLRenderer {
 
         self.gl.use_program(Some(program));
         self.gl.clear_color(0.1, 0.2, 0.3, 1.0);
-
-        log("Flag H");
     }
 
     pub unsafe fn update(&self) {
@@ -242,11 +193,6 @@ impl OpenGLRenderer {
                     _ => {}
                 }
             }
-        }
-
-        #[cfg(feature = "wasm32")]
-        {
-            return true;
         }
 
         return false;
