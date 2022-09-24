@@ -120,6 +120,7 @@ impl OpenGLRenderer {
             );
             self.gl.compile_shader(shader);
             if !self.gl.get_shader_compile_status(shader) {
+                crate::log::error("Error compiling shader");
                 panic!("{}", self.gl.get_shader_info_log(shader));
             }
             self.gl.attach_shader(program, shader);
@@ -128,6 +129,7 @@ impl OpenGLRenderer {
 
         self.gl.link_program(program);
         if !self.gl.get_program_link_status(program) {
+            crate::log::error("Error linking shader");
             panic!("{}", self.gl.get_program_info_log(program));
         }
 
@@ -174,6 +176,7 @@ impl OpenGLRenderer {
         } else if cfg!(feature = "sdl2") {
             return "#version 330";
         } else {
+            crate::log::error("Unable to determine shader version");
             panic!("Unable to determine shader version");
         }
     }

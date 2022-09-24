@@ -1,4 +1,3 @@
-use crate::log;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -9,9 +8,7 @@ extern "C" {
     fn log(s: &str);
 }
 
-use std::string::ToString;
-use strum_macros::Display;
-
+/// Color reference: https://docs.rs/embedded-text/0.4.0/embedded_text/style/index.html
 fn default_txt() -> &'static str {
     return "\x1b[39m";
 }
@@ -29,7 +26,14 @@ fn red_txt() -> &'static str {
 }
 
 fn general_log(log_type: &str, color: &str, text: &str) {
-    let output = format!("{}{: <3} {}{}", color, log_type, text, default_txt());
+    let output = format!(
+        "{}{} {}{}{}",
+        color,
+        log_type,
+        default_txt(),
+        text,
+        default_txt()
+    );
 
     #[cfg(target_arch = "wasm32")]
     {

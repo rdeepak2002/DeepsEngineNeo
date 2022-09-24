@@ -2,10 +2,6 @@ mod log;
 mod renderer;
 mod window;
 
-extern crate strum;
-#[macro_use]
-extern crate strum_macros;
-
 fn main() {
     unsafe {
         let mut renderer = renderer::OpenGLRenderer::new();
