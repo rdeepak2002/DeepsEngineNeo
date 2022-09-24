@@ -2,9 +2,9 @@ use glow::*;
 use sdl2::video::{GLContext, Window};
 use sdl2::EventPump;
 
-pub(crate) fn create_sdl2_context() -> (Context, sdl2::video::Window, EventPump, GLContext) {
+#[cfg(feature = "sdl2")]
+pub(crate) fn create_sdl2_context() -> (Context, Window, EventPump, GLContext) {
     // Create a context from a sdl2 window
-    #[cfg(feature = "sdl2")]
     unsafe {
         let sdl = sdl2::init().unwrap();
         let video = sdl.video().unwrap();
@@ -24,26 +24,67 @@ pub(crate) fn create_sdl2_context() -> (Context, sdl2::video::Window, EventPump,
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn create_webgl_context() -> (Context, web_sys::WebGl2RenderingContext) {
+    use wasm_bindgen::JsCast;
+    let canvas = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id("canvas")
+        .unwrap()
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .unwrap();
+    let webgl2_context = canvas
+        .get_context("webgl2")
+        .unwrap()
+        .unwrap()
+        .dyn_into::<web_sys::WebGl2RenderingContext>()
+        .unwrap();
+    let gl = glow::Context::from_webgl2_context(webgl2_context);
+    return (gl, webgl2_context);
+}
+
 pub struct OpenGLRenderer {
     gl: Context,
+    sdl2_gl_context: Option<GLContext>,
     window: Window,
     events_loop: EventPump,
-    gl_context: GLContext,
+    web_gl_context: Option<web_sys::WebGl2RenderingContext>,
     program: Option<NativeProgram>,
     vertex_array: Option<VertexArray>,
 }
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
-        let (gl, window, events_loop, gl_context) = create_sdl2_context();
+        #[cfg(feature = "sdl2")]
+        {
+            let (gl, mut window, mut events_loop, gl_context) = create_sdl2_context();
 
-        Self {
-            gl,
-            window,
-            events_loop,
-            gl_context,
-            program: None,
-            vertex_array: None,
+            Self {
+                gl,
+                sdl2_gl_context: Some(gl_context),
+                window,
+                events_loop,
+                web_gl_context: None,
+                program: None,
+                vertex_array: None,
+            }
+        }
+
+        #[cfg(feature = "wasm32")]
+        {
+            let (gl, gl_context) = create_webgl_context();
+
+            Self {
+                gl,
+                sdl2_gl_context: None,
+                window,
+                events_loop: events_loop,
+                web_gl_context: Some(gl_context),
+                program: None,
+                vertex_array: None,
+            }
         }
     }
 
@@ -117,16 +158,6 @@ impl OpenGLRenderer {
     pub unsafe fn update(&self) {
         self.gl.clear(glow::COLOR_BUFFER_BIT);
         self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            // This could be called from `requestAnimationFrame`, a winit event
-            // loop, etc.
-            gl.clear(glow::COLOR_BUFFER_BIT);
-            gl.draw_arrays(glow::TRIANGLES, 0, 3);
-            gl.delete_program(program);
-            gl.delete_vertex_array(vertex_array);
-        }
     }
 
     pub unsafe fn destroy(&self) {
@@ -142,15 +173,26 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn swap_buffers(&self) {
-        self.window.gl_swap_window();
+        #[cfg(feature = "sdl2")]
+        {
+            self.window.gl_swap_window();
+        }
     }
 
     pub fn should_close(&mut self) -> bool {
-        for event in self.events_loop.poll_iter() {
-            match event {
-                sdl2::event::Event::Quit { .. } => return true,
-                _ => {}
+        #[cfg(feature = "sdl2")]
+        {
+            for event in self.events_loop.poll_iter() {
+                match event {
+                    sdl2::event::Event::Quit { .. } => return true,
+                    _ => {}
+                }
             }
+        }
+
+        #[cfg(feature = "wasm32")]
+        {
+            return true;
         }
 
         return false;

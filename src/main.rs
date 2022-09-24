@@ -7,10 +7,16 @@ fn main() {
         let mut renderer = OpenGLRenderer::new();
         renderer.init();
 
-        while !renderer.should_close() {
+        // while !renderer.should_close() {
+        //     renderer.update();
+        //     renderer.swap_buffers();
+        // }
+
+        while {
             renderer.update();
             renderer.swap_buffers();
-        }
+            !renderer.should_close()
+        } {}
 
         renderer.destroy();
     }
