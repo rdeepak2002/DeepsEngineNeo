@@ -1,9 +1,45 @@
 use glow::*;
-use sdl2::video::{GLContext, Window};
-use sdl2::EventPump;
+
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+
+    // The `console.log` is quite polymorphic, so we can bind it with multiple
+    // signatures. Note that we need to use `js_name` to ensure we always call
+    // `log` in JS.
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_u32(a: u32);
+
+    // Multiple arguments too!
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_many(a: &str, b: &str);
+}
+
+// pub struct WebGlContexts {
+//     contexts: Vec<web_sys::WebGl2RenderingContext>,
+// }
+//
+// unsafe impl Send for WebGlContexts {}
+// unsafe impl Sync for WebGlContexts {}
+//
+// lazy_static! {
+//     static ref TMP: WebGlContexts = WebGlContexts {
+//         contexts: Vec::new(),
+//     };
+// }
 
 #[cfg(feature = "sdl2")]
-pub(crate) fn create_sdl2_context() -> (Context, Window, EventPump, GLContext) {
+pub(crate) fn create_sdl2_context() -> (
+    Context,
+    sdl2::video::Window,
+    sdl2::EventPump,
+    sdl2::video::GLContext,
+) {
     // Create a context from a sdl2 window
     unsafe {
         let sdl = sdl2::init().unwrap();
@@ -24,64 +60,65 @@ pub(crate) fn create_sdl2_context() -> (Context, Window, EventPump, GLContext) {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn create_webgl_context() -> (Context, web_sys::WebGl2RenderingContext) {
-    use wasm_bindgen::JsCast;
-    let canvas = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .unwrap();
-    let webgl2_context = canvas
-        .get_context("webgl2")
-        .unwrap()
-        .unwrap()
-        .dyn_into::<web_sys::WebGl2RenderingContext>()
-        .unwrap();
-    let gl = glow::Context::from_webgl2_context(webgl2_context);
-    return (gl, webgl2_context);
-}
+// #[cfg(target_arch = "wasm32")]
+// pub(crate) fn create_webgl_context() -> (Context) {
+//     use wasm_bindgen::JsCast;
+//     let canvas = web_sys::window()
+//         .unwrap()
+//         .document()
+//         .unwrap()
+//         .get_element_by_id("canvas")
+//         .unwrap()
+//         .dyn_into::<web_sys::HtmlCanvasElement>()
+//         .unwrap();
+//     let webgl2_context = canvas
+//         .get_context("webgl2")
+//         .unwrap()
+//         .unwrap()
+//         .dyn_into::<web_sys::WebGl2RenderingContext>()
+//         .unwrap();
+//     let gl = glow::Context::from_webgl2_context(webgl2_context);
+//
+//     return gl;
+// }
 
 pub struct OpenGLRenderer {
     gl: Context,
-    sdl2_gl_context: Option<GLContext>,
-    window: Window,
-    events_loop: EventPump,
-    web_gl_context: Option<web_sys::WebGl2RenderingContext>,
-    program: Option<NativeProgram>,
-    vertex_array: Option<VertexArray>,
+    #[cfg(feature = "sdl2")]
+    sdl2_gl_context: Option<sdl2::video::GLContext>,
+    #[cfg(feature = "sdl2")]
+    window: sdl2::video::Window,
+    #[cfg(feature = "sdl2")]
+    events_loop: sdl2::EventPump,
+    program: Option<glow::Program>,
+    vertex_array: Option<glow::VertexArray>,
 }
 
 impl OpenGLRenderer {
-    pub fn new() -> Self {
+    pub fn new(gl: Context) -> Self {
         #[cfg(feature = "sdl2")]
         {
-            let (gl, mut window, mut events_loop, gl_context) = create_sdl2_context();
-
+            let (gl, window, events_loop, gl_context) = create_sdl2_context();
             Self {
                 gl,
                 sdl2_gl_context: Some(gl_context),
                 window,
                 events_loop,
-                web_gl_context: None,
                 program: None,
                 vertex_array: None,
             }
         }
 
-        #[cfg(feature = "wasm32")]
+        // #[cfg(target_arch = "wasm32")]
         {
-            let (gl, gl_context) = create_webgl_context();
+            log("Flag C");
+
+            // let gl = create_webgl_context();
+            // let gl = glow::Context::from_webgl2_context(webgl2_context);
+            // let gl = std::rc::Rc::new(gl);
 
             Self {
                 gl,
-                sdl2_gl_context: None,
-                window,
-                events_loop: events_loop,
-                web_gl_context: Some(gl_context),
                 program: None,
                 vertex_array: None,
             }
@@ -89,7 +126,11 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn init(&mut self) {
+        log("Flag D");
+
         println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
+
+        log("Flag E");
 
         let vertex_array = self
             .gl
@@ -99,6 +140,8 @@ impl OpenGLRenderer {
         self.vertex_array = Some(vertex_array);
         let program = self.gl.create_program().expect("Cannot create program");
         self.program = Some(program);
+
+        log("Flag F");
 
         let (vertex_shader_source, fragment_shader_source) = (
             r#"const vec2 verts[3] = vec2[3](
@@ -124,6 +167,15 @@ impl OpenGLRenderer {
             (glow::FRAGMENT_SHADER, fragment_shader_source),
         ];
 
+        log("Flag G");
+
+        let mut shader_version = "#version 330";
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            shader_version = "#version 300 es";
+        }
+
         let mut shaders = Vec::with_capacity(shader_sources.len());
 
         for (shader_type, shader_source) in shader_sources.iter() {
@@ -132,7 +184,7 @@ impl OpenGLRenderer {
                 .create_shader(*shader_type)
                 .expect("Cannot create shader");
             self.gl
-                .shader_source(shader, &format!("{}\n{}", "#version 330", shader_source));
+                .shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
             self.gl.compile_shader(shader);
             if !self.gl.get_shader_compile_status(shader) {
                 panic!("{}", self.gl.get_shader_info_log(shader));
@@ -153,6 +205,8 @@ impl OpenGLRenderer {
 
         self.gl.use_program(Some(program));
         self.gl.clear_color(0.1, 0.2, 0.3, 1.0);
+
+        log("Flag H");
     }
 
     pub unsafe fn update(&self) {

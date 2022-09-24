@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 glow = "0.11.2"
 web-sys = { version = "0.3", features=["HtmlCanvasElement", "WebGl2RenderingContext", "Window"] }
+wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 sdl2 = { version = "0.35", optional = true }
@@ -18,3 +19,6 @@ sdl2 = { version = "0.35", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["HtmlCanvasElement", "WebGl2RenderingContext", "Window"] }
 wasm-bindgen = { version = "0.2" }
+
+[dependencies.lazy_static]
+git = "https://github.com/Kimundi/lazy-static.rs"
