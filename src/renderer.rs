@@ -29,6 +29,8 @@ pub struct OpenGLRenderer {
     window: Window,
     events_loop: EventPump,
     gl_context: GLContext,
+    program: Option<NativeProgram>,
+    vertex_array: Option<VertexArray>,
 }
 
 impl OpenGLRenderer {
@@ -40,28 +42,22 @@ impl OpenGLRenderer {
             window,
             events_loop,
             gl_context,
+            program: None,
+            vertex_array: None,
         }
     }
 
     pub unsafe fn init(&mut self) {
-        // let gl = &self.gl;
-        // let window = &self.window;
-        // let events_loop = &mut self.events_loop;
-
         println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
-
-        // let gl = &self.gl;
-        let shader_version = "#version 330";
-        // let events_loop = &self.events_loop;
-        // let window = &self.window;
 
         let vertex_array = self
             .gl
             .create_vertex_array()
             .expect("Cannot create vertex array");
         self.gl.bind_vertex_array(Some(vertex_array));
-
+        self.vertex_array = Some(vertex_array);
         let program = self.gl.create_program().expect("Cannot create program");
+        self.program = Some(program);
 
         let (vertex_shader_source, fragment_shader_source) = (
             r#"const vec2 verts[3] = vec2[3](
@@ -95,7 +91,7 @@ impl OpenGLRenderer {
                 .create_shader(*shader_type)
                 .expect("Cannot create shader");
             self.gl
-                .shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+                .shader_source(shader, &format!("{}\n{}", "#version 330", shader_source));
             self.gl.compile_shader(shader);
             if !self.gl.get_shader_compile_status(shader) {
                 panic!("{}", self.gl.get_shader_info_log(shader));
@@ -116,67 +112,11 @@ impl OpenGLRenderer {
 
         self.gl.use_program(Some(program));
         self.gl.clear_color(0.1, 0.2, 0.3, 1.0);
+    }
 
-        // We handle events differently between targets
-
-        #[cfg(feature = "glutin")]
-        {
-            use glutin::event::{Event, WindowEvent};
-            use glutin::event_loop::ControlFlow;
-
-            event_loop.run(move |event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
-                match event {
-                    Event::LoopDestroyed => {
-                        return;
-                    }
-                    Event::MainEventsCleared => {
-                        window.window().request_redraw();
-                    }
-                    Event::RedrawRequested(_) => {
-                        gl.clear(glow::COLOR_BUFFER_BIT);
-                        gl.draw_arrays(glow::TRIANGLES, 0, 3);
-                        window.swap_buffers().unwrap();
-                    }
-                    Event::WindowEvent { ref event, .. } => match event {
-                        WindowEvent::Resized(physical_size) => {
-                            window.resize(*physical_size);
-                        }
-                        WindowEvent::CloseRequested => {
-                            gl.delete_program(program);
-                            gl.delete_vertex_array(vertex_array);
-                            *control_flow = ControlFlow::Exit
-                        }
-                        _ => (),
-                    },
-                    _ => (),
-                }
-            });
-        }
-
-        #[cfg(feature = "sdl2")]
-        {
-            let mut running = true;
-            while running {
-                {
-                    for event in self.events_loop.poll_iter() {
-                        match event {
-                            sdl2::event::Event::Quit { .. } => running = false,
-                            _ => {}
-                        }
-                    }
-                }
-
-                self.gl.clear(glow::COLOR_BUFFER_BIT);
-                self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
-                self.window.gl_swap_window();
-
-                if !running {
-                    self.gl.delete_program(program);
-                    self.gl.delete_vertex_array(vertex_array);
-                }
-            }
-        }
+    pub unsafe fn update(&self) {
+        self.gl.clear(glow::COLOR_BUFFER_BIT);
+        self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -187,5 +127,32 @@ impl OpenGLRenderer {
             gl.delete_program(program);
             gl.delete_vertex_array(vertex_array);
         }
+    }
+
+    pub unsafe fn destroy(&self) {
+        match self.program {
+            Some(x) => self.gl.delete_program(x),
+            _ => {}
+        }
+
+        match self.vertex_array {
+            Some(x) => self.gl.delete_vertex_array(x),
+            _ => {}
+        }
+    }
+
+    pub unsafe fn swap_buffers(&self) {
+        self.window.gl_swap_window();
+    }
+
+    pub fn should_close(&mut self) -> bool {
+        for event in self.events_loop.poll_iter() {
+            match event {
+                sdl2::event::Event::Quit { .. } => return true,
+                _ => {}
+            }
+        }
+
+        return false;
     }
 }
