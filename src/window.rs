@@ -1,6 +1,6 @@
 #[cfg(feature = "sdl2")]
 pub(crate) struct SDL2Window {
-    sdl2_gl_context: sdl2::video::GLContext,
+    gl_context: sdl2::video::GLContext,
     window: sdl2::video::Window,
     events_loop: sdl2::EventPump,
     should_close: bool,
@@ -9,12 +9,12 @@ pub(crate) struct SDL2Window {
 #[cfg(feature = "sdl2")]
 impl SDL2Window {
     pub fn new(
-        sdl2_gl_context: sdl2::video::GLContext,
+        gl_context: sdl2::video::GLContext,
         window: sdl2::video::Window,
         events_loop: sdl2::EventPump,
     ) -> Self {
         Self {
-            sdl2_gl_context,
+            gl_context,
             window,
             events_loop,
             should_close: false,

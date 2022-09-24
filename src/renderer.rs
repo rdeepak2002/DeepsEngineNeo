@@ -79,6 +79,7 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn init(&mut self) {
+        // TODO: create logging system
         println!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
 
         let vertex_array = self
