@@ -1,5 +1,6 @@
 use gl::types::*;
 
+use emscripten_main_loop::MainLoopEvent;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_void;
@@ -7,7 +8,6 @@ use std::ptr;
 use std::str;
 use std::sync::mpsc::Receiver;
 
-// #[cfg(feature = "sdl2")]
 pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
@@ -39,28 +39,6 @@ pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     return Box::new(sdl_window);
 }
 
-// #[cfg(target_arch = "wasm32")]
-// pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
-//     use wasm_bindgen::JsCast;
-//     let canvas = web_sys::window()
-//         .unwrap()
-//         .document()
-//         .unwrap()
-//         .get_element_by_id("canvas")
-//         .unwrap()
-//         .dyn_into::<web_sys::HtmlCanvasElement>()
-//         .unwrap();
-//     let webgl2_context = canvas
-//         .get_context("webgl2")
-//         .unwrap()
-//         .unwrap()
-//         .dyn_into::<web_sys::WebGl2RenderingContext>()
-//         .unwrap();
-//     let gl = glow::Context::from_webgl2_context(webgl2_context);
-//     let web_gl2_window = crate::window::WebGL2Window {};
-//     return (gl, Box::new(web_gl2_window));
-// }
-
 // TODO: create general Renderer interface
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
@@ -80,6 +58,22 @@ out vec4 FragColor;
 void main() {
     FragColor = vec4(1.0, 0.5, 0.2, 1.0);
 }"##;
+
+impl emscripten_main_loop::MainLoop for OpenGLRenderer {
+    fn main_loop(&mut self) -> emscripten_main_loop::MainLoopEvent {
+        unsafe {
+            self.update();
+            self.swap_buffers();
+            self.poll_events();
+            if self.should_close() {
+                self.destroy();
+                return MainLoopEvent::Terminate;
+            }
+        }
+
+        MainLoopEvent::Continue
+    }
+}
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
@@ -233,30 +227,22 @@ impl OpenGLRenderer {
     pub unsafe fn destroy(&self) {}
 
     pub fn swap_buffers(&self) {
-        if cfg!(not(target_os = "emscripten")) {
-            self.window.swap_buffers();
-        }
+        self.window.swap_buffers();
     }
 
     pub fn poll_events(&mut self) {
-        if cfg!(not(target_os = "emscripten")) {
-            self.window.poll_events();
-        }
+        self.window.poll_events();
     }
 
     pub fn should_close(&self) -> bool {
-        // return false;
-        if cfg!(target_os = "emscripten") {
-            return false;
-        }
         return self.window.should_close();
     }
 
     fn get_glsl_version(&self) -> &str {
-        if cfg!(target_os = "emscripten") {
-            return "#version 300 es";
+        return if cfg!(target_os = "emscripten") {
+            "#version 300 es"
         } else {
-            return "#version 330 core";
-        }
+            "#version 330 core"
+        };
     }
 }

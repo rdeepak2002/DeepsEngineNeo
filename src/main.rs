@@ -14,9 +14,16 @@ pub mod emscripten;
 fn main() {
     unsafe {
         let mut renderer = renderer::OpenGLRenderer::new();
+        renderer.compile_shaders();
 
-        let mut main_loop = || {
-            renderer.compile_shaders();
+        #[cfg(target_os = "emscripten")]
+        {
+            use emscripten::emscripten;
+            emscripten_main_loop::run(renderer);
+        }
+
+        #[cfg(not(target_os = "emscripten"))]
+        loop {
             renderer.update();
             renderer.swap_buffers();
             renderer.poll_events();
@@ -24,17 +31,6 @@ fn main() {
                 renderer.destroy();
                 process::exit(EXIT_SUCCESS);
             }
-        };
-
-        #[cfg(target_os = "emscripten")]
-        {
-            use emscripten::emscripten;
-            emscripten::set_main_loop_callback(main_loop);
-        }
-
-        #[cfg(not(target_os = "emscripten"))]
-        loop {
-            main_loop();
         }
     }
 }
