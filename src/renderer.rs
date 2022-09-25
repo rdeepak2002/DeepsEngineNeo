@@ -1,42 +1,11 @@
 use gl::types::*;
 
-use emscripten_main_loop::MainLoopEvent;
 use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
 use std::str;
-use std::sync::mpsc::Receiver;
 
-pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
-    let sdl = sdl2::init().unwrap();
-    let video = sdl.video().unwrap();
-    let gl_attr = video.gl_attr();
-    if cfg!(target_os = "emscripten") {
-        gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
-    } else {
-        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    }
-    gl_attr.set_context_version(3, 0);
-    let window = video
-        .window("DeepsEngine", 1024, 769)
-        .opengl()
-        .resizable()
-        .build()
-        .unwrap();
-    let gl_context = window.gl_create_context().unwrap();
-    let events_loop = sdl.event_pump().unwrap();
-    let sdl_window = crate::window::SDL2Window {
-        gl_context,
-        window,
-        events_loop,
-        should_close: false,
-    };
-    gl::load_with(|s| video.gl_get_proc_address(s) as *const _);
-    return Box::new(sdl_window);
-}
-
-// TODO: create general Renderer interface
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
     VAO: u32,
@@ -58,29 +27,36 @@ void main() {
 
 impl emscripten_main_loop::MainLoop for OpenGLRenderer {
     fn main_loop(&mut self) -> emscripten_main_loop::MainLoopEvent {
-        unsafe {
-            self.update();
-            self.swap_buffers();
-            self.poll_events();
-            if self.should_close() {
-                self.destroy();
-                return MainLoopEvent::Terminate;
-            }
-        }
-
-        MainLoopEvent::Continue
+        return if self.render() {
+            emscripten_main_loop::MainLoopEvent::Terminate
+        } else {
+            emscripten_main_loop::MainLoopEvent::Continue
+        };
     }
 }
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
-        let window = create_gl_context();
+        let window = crate::window::create_sdl2_window();
 
         Self {
             window,
             VAO: 0,
             shaderProgram: 0,
         }
+    }
+
+    pub(crate) fn render(&mut self) -> bool {
+        unsafe {
+            self.update();
+            self.swap_buffers();
+            self.poll_events();
+            if self.should_close() {
+                self.destroy();
+                return true;
+            }
+        }
+        return false;
     }
 
     pub unsafe fn compile_shaders(&mut self) {

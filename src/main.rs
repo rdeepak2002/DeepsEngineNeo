@@ -10,7 +10,7 @@ mod window;
 
 fn main() {
     unsafe {
-        crate::log::debug("DeepsEngine Version 0.1");
+        log::debug("DeepsEngine Version 0.1");
 
         let mut renderer = renderer::OpenGLRenderer::new();
         renderer.compile_shaders();
@@ -22,13 +22,11 @@ fn main() {
 
         #[cfg(not(target_os = "emscripten"))]
         loop {
-            renderer.update();
-            renderer.swap_buffers();
-            renderer.poll_events();
-            if renderer.should_close() {
-                renderer.destroy();
-                process::exit(EXIT_SUCCESS);
+            if renderer.render() {
+                break;
             }
         }
+
+        process::exit(EXIT_SUCCESS);
     }
 }
