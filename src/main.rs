@@ -8,17 +8,15 @@ mod log;
 mod renderer;
 mod window;
 
-#[cfg(target_os = "emscripten")]
-pub mod emscripten;
-
 fn main() {
     unsafe {
+        crate::log::debug("DeepsEngine Version 0.1");
+
         let mut renderer = renderer::OpenGLRenderer::new();
         renderer.compile_shaders();
 
         #[cfg(target_os = "emscripten")]
         {
-            use emscripten::emscripten;
             emscripten_main_loop::run(renderer);
         }
 
