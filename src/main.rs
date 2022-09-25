@@ -14,9 +14,9 @@ pub mod emscripten;
 fn main() {
     unsafe {
         let mut renderer = renderer::OpenGLRenderer::new();
-        renderer.compile_shaders();
 
         let mut main_loop = || {
+            renderer.compile_shaders();
             renderer.update();
             renderer.swap_buffers();
             renderer.poll_events();
@@ -27,10 +27,10 @@ fn main() {
         };
 
         #[cfg(target_os = "emscripten")]
-        use emscripten::emscripten;
-
-        #[cfg(target_os = "emscripten")]
-        emscripten::set_main_loop_callback(main_loop);
+        {
+            use emscripten::emscripten;
+            emscripten::set_main_loop_callback(main_loop);
+        }
 
         #[cfg(not(target_os = "emscripten"))]
         loop {

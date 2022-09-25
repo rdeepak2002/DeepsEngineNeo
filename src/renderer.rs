@@ -7,28 +7,19 @@ use std::ptr;
 use std::str;
 use std::sync::mpsc::Receiver;
 
-const vertexShaderSource: &str = r#"
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    void main() {
-       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-    }
-"#;
-
-const fragmentShaderSource: &str = r#"
-    #version 330 core
-    out vec4 FragColor;
-    void main() {
-       FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-    }
-"#;
-
 // #[cfg(feature = "sdl2")]
 pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+    #[cfg(not(target_os = "emscripten"))]
+    {
+        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+    }
+    #[cfg(target_os = "emscripten")]
+    {
+        gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
+    }
     gl_attr.set_context_version(3, 0);
     let window = video
         .window("DeepsEngine", 1024, 769)
@@ -77,6 +68,19 @@ pub struct OpenGLRenderer {
     shaderProgram: u32,
 }
 
+const vertexShaderSource: &str = r##"
+layout (location = 0) in vec3 aPos;
+void main() {
+    gl_Position = vec4(aPos, 1.0);
+}"##;
+
+const fragmentShaderSource: &str = r##"
+precision highp float;
+out vec4 FragColor;
+void main() {
+    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
+}"##;
+
 impl OpenGLRenderer {
     pub fn new() -> Self {
         let window = create_gl_context();
@@ -93,7 +97,12 @@ impl OpenGLRenderer {
         // ------------------------------------
         // vertex shader
         let vertexShader = gl::CreateShader(gl::VERTEX_SHADER);
-        let c_str_vert = CString::new(vertexShaderSource.as_bytes()).unwrap();
+        let c_str_vert = CString::new(
+            format!("{}\n{}", self.get_glsl_version(), vertexShaderSource)
+                .as_str()
+                .as_bytes(),
+        )
+        .unwrap();
         gl::ShaderSource(vertexShader, 1, &c_str_vert.as_ptr(), ptr::null());
         gl::CompileShader(vertexShader);
 
@@ -118,7 +127,12 @@ impl OpenGLRenderer {
 
         // fragment shader
         let fragmentShader = gl::CreateShader(gl::FRAGMENT_SHADER);
-        let c_str_frag = CString::new(fragmentShaderSource.as_bytes()).unwrap();
+        let c_str_frag = CString::new(
+            format!("{}\n{}", self.get_glsl_version(), fragmentShaderSource)
+                .as_str()
+                .as_bytes(),
+        )
+        .unwrap();
         gl::ShaderSource(fragmentShader, 1, &c_str_frag.as_ptr(), ptr::null());
         gl::CompileShader(fragmentShader);
         // check for shader compile errors
@@ -158,6 +172,8 @@ impl OpenGLRenderer {
         }
         gl::DeleteShader(vertexShader);
         gl::DeleteShader(fragmentShader);
+
+        gl::UseProgram(self.shaderProgram);
 
         // set up vertex data (and buffer(s)) and configure vertex attributes
         // ------------------------------------------------------------------
@@ -203,34 +219,44 @@ impl OpenGLRenderer {
         gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
+        // crate::log::debug("Clear screen");
+
         // draw our first triangle
         gl::UseProgram(self.shaderProgram);
+        // crate::log::debug("Using shader program");
         gl::BindVertexArray(self.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+                                       // crate::log::debug("Binded vertex array");
         gl::DrawArrays(gl::TRIANGLES, 0, 3);
+        // crate::log::debug("Drew arrays");
     }
 
     pub unsafe fn destroy(&self) {}
 
     pub fn swap_buffers(&self) {
-        self.window.swap_buffers();
+        if cfg!(not(target_os = "emscripten")) {
+            self.window.swap_buffers();
+        }
     }
 
     pub fn poll_events(&mut self) {
-        self.window.poll_events();
+        if cfg!(not(target_os = "emscripten")) {
+            self.window.poll_events();
+        }
     }
 
     pub fn should_close(&self) -> bool {
+        // return false;
+        if cfg!(target_os = "emscripten") {
+            return false;
+        }
         return self.window.should_close();
     }
 
     fn get_glsl_version(&self) -> &str {
-        if cfg!(target_arch = "wasm32") {
+        if cfg!(target_os = "emscripten") {
             return "#version 300 es";
-        } else if cfg!(feature = "sdl2") {
-            return "#version 330 core";
         } else {
-            crate::log::error("Unable to determine shader version");
-            panic!("Unable to determine shader version");
+            return "#version 330 core";
         }
     }
 }

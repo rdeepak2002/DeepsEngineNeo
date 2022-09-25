@@ -13,6 +13,7 @@ cgmath = "0.18.0"
 gl = "0.14.0"
 #sdl2 = { version = "0.35", optional = true }
 sdl2 = "0.35.2"
+#sdl2 = { version = "0.35.2", features = ["bundled", "static-link"] }
 
 #[target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 #sdl2 = { version = "0.35", optional = true }

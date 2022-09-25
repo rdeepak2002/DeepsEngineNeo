@@ -1,13 +1,3 @@
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
-
 /// Color reference: https://docs.rs/embedded-text/0.4.0/embedded_text/style/index.html
 fn default_txt() -> &'static str {
     return "\x1b[39m";
@@ -34,11 +24,6 @@ fn general_log(log_type: &str, color: &str, text: &str) {
         text,
         default_txt()
     );
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        log(output.as_str())
-    }
 
     println!("{}", output);
 }
