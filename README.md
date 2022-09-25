@@ -20,6 +20,12 @@ Recreation of [DeepsEngine](https://github.com/rdeepak2002/DeepsEngine) in Rust
 
 - [Rust](https://www.rust-lang.org/tools/install) 
 - [SDL2](https://wiki.libsdl.org/Installation)
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)
+- wasm32-unknown-emscripten target for Rust
+  - Installation command:
+```shell
+rustup target add wasm32-unknown-emscripten
+```
 - wasm32-unknown-unknown target for Rust
   - Installation command:
 ```shell

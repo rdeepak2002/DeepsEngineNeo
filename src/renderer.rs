@@ -1,4 +1,3 @@
-extern crate gl;
 use gl::types::*;
 
 use std::ffi::CString;
@@ -24,7 +23,7 @@ const fragmentShaderSource: &str = r#"
     }
 "#;
 
-#[cfg(feature = "sdl2")]
+// #[cfg(feature = "sdl2")]
 pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
@@ -49,27 +48,27 @@ pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     return Box::new(sdl_window);
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
-    use wasm_bindgen::JsCast;
-    let canvas = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .unwrap();
-    let webgl2_context = canvas
-        .get_context("webgl2")
-        .unwrap()
-        .unwrap()
-        .dyn_into::<web_sys::WebGl2RenderingContext>()
-        .unwrap();
-    let gl = glow::Context::from_webgl2_context(webgl2_context);
-    let web_gl2_window = crate::window::WebGL2Window {};
-    return (gl, Box::new(web_gl2_window));
-}
+// #[cfg(target_arch = "wasm32")]
+// pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
+//     use wasm_bindgen::JsCast;
+//     let canvas = web_sys::window()
+//         .unwrap()
+//         .document()
+//         .unwrap()
+//         .get_element_by_id("canvas")
+//         .unwrap()
+//         .dyn_into::<web_sys::HtmlCanvasElement>()
+//         .unwrap();
+//     let webgl2_context = canvas
+//         .get_context("webgl2")
+//         .unwrap()
+//         .unwrap()
+//         .dyn_into::<web_sys::WebGl2RenderingContext>()
+//         .unwrap();
+//     let gl = glow::Context::from_webgl2_context(webgl2_context);
+//     let web_gl2_window = crate::window::WebGL2Window {};
+//     return (gl, Box::new(web_gl2_window));
+// }
 
 // TODO: create general Renderer interface
 pub struct OpenGLRenderer {
@@ -110,10 +109,11 @@ impl OpenGLRenderer {
                 ptr::null_mut(),
                 infoLog.as_mut_ptr() as *mut GLchar,
             );
-            println!(
+            let error_text = format!(
                 "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}",
                 str::from_utf8(&infoLog).unwrap()
             );
+            crate::log::error(error_text.as_str());
         }
 
         // fragment shader
@@ -130,10 +130,11 @@ impl OpenGLRenderer {
                 ptr::null_mut(),
                 infoLog.as_mut_ptr() as *mut GLchar,
             );
-            println!(
-                "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}",
+            let error_text = format!(
+                "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}",
                 str::from_utf8(&infoLog).unwrap()
             );
+            crate::log::error(error_text.as_str());
         }
 
         // link shaders

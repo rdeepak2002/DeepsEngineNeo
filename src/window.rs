@@ -4,21 +4,20 @@ pub(crate) trait Window {
     fn should_close(&self) -> bool;
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) struct WebGL2Window {}
+// #[cfg(target_arch = "wasm32")]
+// pub(crate) struct WebGL2Window {}
+//
+// #[cfg(target_arch = "wasm32")]
+// impl Window for WebGL2Window {
+//     fn swap_buffers(&self) {}
+//
+//     fn poll_events(&mut self) {}
+//
+//     fn should_close(&self) -> bool {
+//         return true;
+//     }
+// }
 
-#[cfg(target_arch = "wasm32")]
-impl Window for WebGL2Window {
-    fn swap_buffers(&self) {}
-
-    fn poll_events(&mut self) {}
-
-    fn should_close(&self) -> bool {
-        return true;
-    }
-}
-
-#[cfg(feature = "sdl2")]
 pub(crate) struct SDL2Window {
     pub gl_context: sdl2::video::GLContext,
     pub window: sdl2::video::Window,
@@ -26,7 +25,6 @@ pub(crate) struct SDL2Window {
     pub should_close: bool,
 }
 
-#[cfg(feature = "sdl2")]
 impl Window for SDL2Window {
     fn swap_buffers(&self) {
         self.window.gl_swap_window();
