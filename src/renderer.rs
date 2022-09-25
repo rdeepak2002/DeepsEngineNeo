@@ -12,13 +12,10 @@ pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
-    #[cfg(not(target_os = "emscripten"))]
-    {
-        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    }
-    #[cfg(target_os = "emscripten")]
-    {
+    if cfg!(target_os = "emscripten") {
         gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
+    } else {
+        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     }
     gl_attr.set_context_version(3, 0);
     let window = video
