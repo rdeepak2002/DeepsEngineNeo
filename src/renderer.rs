@@ -27,7 +27,7 @@ void main() {
 
 impl emscripten_main_loop::MainLoop for OpenGLRenderer {
     fn main_loop(&mut self) -> emscripten_main_loop::MainLoopEvent {
-        return if self.render() {
+        return if self.update() {
             emscripten_main_loop::MainLoopEvent::Terminate
         } else {
             emscripten_main_loop::MainLoopEvent::Continue
@@ -46,9 +46,9 @@ impl OpenGLRenderer {
         }
     }
 
-    pub(crate) fn render(&mut self) -> bool {
+    pub(crate) fn update(&mut self) -> bool {
         unsafe {
-            self.update();
+            self.render();
             self.swap_buffers();
             self.poll_events();
             if self.should_close() {
@@ -182,7 +182,7 @@ impl OpenGLRenderer {
         gl::BindVertexArray(0);
     }
 
-    pub unsafe fn update(&self) {
+    pub unsafe fn render(&self) {
         gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 

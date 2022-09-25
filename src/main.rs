@@ -22,7 +22,7 @@ fn main() {
 
         #[cfg(not(target_os = "emscripten"))]
         loop {
-            if renderer.render() {
+            if renderer.update() {
                 break;
             }
         }
