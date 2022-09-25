@@ -1,7 +1,31 @@
-use glow::HasContext;
+extern crate gl;
+use gl::types::*;
+
+use std::ffi::CString;
+use std::mem;
+use std::os::raw::c_void;
+use std::ptr;
+use std::str;
+use std::sync::mpsc::Receiver;
+
+const vertexShaderSource: &str = r#"
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main() {
+       gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+    }
+"#;
+
+const fragmentShaderSource: &str = r#"
+    #version 330 core
+    out vec4 FragColor;
+    void main() {
+       FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+    }
+"#;
 
 #[cfg(feature = "sdl2")]
-pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Window>) {
+pub(crate) fn create_gl_context() -> Box<dyn crate::window::Window> {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let gl_attr = video.gl_attr();
@@ -14,17 +38,15 @@ pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Wind
         .build()
         .unwrap();
     let gl_context = window.gl_create_context().unwrap();
-    unsafe {
-        let gl = glow::Context::from_loader_function(|s| video.gl_get_proc_address(s) as *const _);
-        let events_loop = sdl.event_pump().unwrap();
-        let sdl_window = crate::window::SDL2Window {
-            gl_context,
-            window,
-            events_loop,
-            should_close: false,
-        };
-        return (gl, Box::new(sdl_window));
-    }
+    let events_loop = sdl.event_pump().unwrap();
+    let sdl_window = crate::window::SDL2Window {
+        gl_context,
+        window,
+        events_loop,
+        should_close: false,
+    };
+    gl::load_with(|s| video.gl_get_proc_address(s) as *const _);
+    return Box::new(sdl_window);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -51,111 +73,142 @@ pub(crate) fn create_gl_context() -> (glow::Context, Box<dyn crate::window::Wind
 
 // TODO: create general Renderer interface
 pub struct OpenGLRenderer {
-    gl: glow::Context,
     window: Box<dyn crate::window::Window>,
-    program: Option<glow::Program>,
-    vertex_array: Option<glow::VertexArray>,
+    VAO: u32,
+    shaderProgram: u32,
 }
 
 impl OpenGLRenderer {
     pub fn new() -> Self {
-        let (gl, window) = create_gl_context();
+        let window = create_gl_context();
 
         Self {
-            gl,
             window,
-            program: None,
-            vertex_array: None,
+            VAO: 0,
+            shaderProgram: 0,
         }
     }
 
     pub unsafe fn compile_shaders(&mut self) {
-        let gl_version = format!("gl {}.{}", self.gl.version().major, self.gl.version().minor);
-        crate::log::debug(gl_version.as_str());
+        // build and compile our shader program
+        // ------------------------------------
+        // vertex shader
+        let vertexShader = gl::CreateShader(gl::VERTEX_SHADER);
+        let c_str_vert = CString::new(vertexShaderSource.as_bytes()).unwrap();
+        gl::ShaderSource(vertexShader, 1, &c_str_vert.as_ptr(), ptr::null());
+        gl::CompileShader(vertexShader);
 
-        let vertex_array = self
-            .gl
-            .create_vertex_array()
-            .expect("Cannot create vertex array");
-        self.gl.bind_vertex_array(Some(vertex_array));
-        self.vertex_array = Some(vertex_array);
-        let program = self.gl.create_program().expect("Cannot create program");
-        self.program = Some(program);
-
-        let (vertex_shader_source, fragment_shader_source) = (
-            r#"const vec2 verts[3] = vec2[3](
-                vec2(0.5f, 1.0f),
-                vec2(0.0f, 0.0f),
-                vec2(1.0f, 0.0f)
+        // check for shader compile errors
+        let mut success = gl::FALSE as GLint;
+        let mut infoLog = Vec::with_capacity(512);
+        infoLog.set_len(512 - 1); // subtract 1 to skip the trailing null character
+        gl::GetShaderiv(vertexShader, gl::COMPILE_STATUS, &mut success);
+        if success != gl::TRUE as GLint {
+            gl::GetShaderInfoLog(
+                vertexShader,
+                512,
+                ptr::null_mut(),
+                infoLog.as_mut_ptr() as *mut GLchar,
             );
-            out vec2 vert;
-            void main() {
-                vert = verts[gl_VertexID];
-                gl_Position = vec4(vert - 0.5, 0.0, 1.0);
-            }"#,
-            r#"precision mediump float;
-            in vec2 vert;
-            out vec4 color;
-            void main() {
-                color = vec4(vert, 0.5, 1.0);
-            }"#,
+            println!(
+                "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}",
+                str::from_utf8(&infoLog).unwrap()
+            );
+        }
+
+        // fragment shader
+        let fragmentShader = gl::CreateShader(gl::FRAGMENT_SHADER);
+        let c_str_frag = CString::new(fragmentShaderSource.as_bytes()).unwrap();
+        gl::ShaderSource(fragmentShader, 1, &c_str_frag.as_ptr(), ptr::null());
+        gl::CompileShader(fragmentShader);
+        // check for shader compile errors
+        gl::GetShaderiv(fragmentShader, gl::COMPILE_STATUS, &mut success);
+        if success != gl::TRUE as GLint {
+            gl::GetShaderInfoLog(
+                fragmentShader,
+                512,
+                ptr::null_mut(),
+                infoLog.as_mut_ptr() as *mut GLchar,
+            );
+            println!(
+                "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{}",
+                str::from_utf8(&infoLog).unwrap()
+            );
+        }
+
+        // link shaders
+        self.shaderProgram = gl::CreateProgram();
+        gl::AttachShader(self.shaderProgram, vertexShader);
+        gl::AttachShader(self.shaderProgram, fragmentShader);
+        gl::LinkProgram(self.shaderProgram);
+        // check for linking errors
+        gl::GetProgramiv(self.shaderProgram, gl::LINK_STATUS, &mut success);
+        if success != gl::TRUE as GLint {
+            gl::GetProgramInfoLog(
+                self.shaderProgram,
+                512,
+                ptr::null_mut(),
+                infoLog.as_mut_ptr() as *mut GLchar,
+            );
+            println!(
+                "ERROR::SHADER::PROGRAM::COMPILATION_FAILED\n{}",
+                str::from_utf8(&infoLog).unwrap()
+            );
+        }
+        gl::DeleteShader(vertexShader);
+        gl::DeleteShader(fragmentShader);
+
+        // set up vertex data (and buffer(s)) and configure vertex attributes
+        // ------------------------------------------------------------------
+        // HINT: type annotation is crucial since default for float literals is f64
+        let vertices: [f32; 9] = [
+            -0.5, -0.5, 0.0, // left
+            0.5, -0.5, 0.0, // right
+            0.0, 0.5, 0.0, // top
+        ];
+        let mut VBO = 0;
+        gl::GenVertexArrays(1, &mut self.VAO);
+        gl::GenBuffers(1, &mut VBO);
+        // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+        gl::BindVertexArray(self.VAO);
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, VBO);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
+            &vertices[0] as *const f32 as *const c_void,
+            gl::STATIC_DRAW,
         );
 
-        let shader_sources = [
-            (glow::VERTEX_SHADER, vertex_shader_source),
-            (glow::FRAGMENT_SHADER, fragment_shader_source),
-        ];
+        gl::VertexAttribPointer(
+            0,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            3 * mem::size_of::<GLfloat>() as GLsizei,
+            ptr::null(),
+        );
+        gl::EnableVertexAttribArray(0);
 
-        let mut shaders = Vec::with_capacity(shader_sources.len());
+        // note that this is allowed, the call to gl::VertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
-        for (shader_type, shader_source) in shader_sources.iter() {
-            let shader = self
-                .gl
-                .create_shader(*shader_type)
-                .expect("Cannot create shader");
-            self.gl.shader_source(
-                shader,
-                &format!("{}\n{}", self.get_glsl_version(), shader_source),
-            );
-            self.gl.compile_shader(shader);
-            if !self.gl.get_shader_compile_status(shader) {
-                crate::log::error("Error compiling shader");
-                panic!("{}", self.gl.get_shader_info_log(shader));
-            }
-            self.gl.attach_shader(program, shader);
-            shaders.push(shader);
-        }
-
-        self.gl.link_program(program);
-        if !self.gl.get_program_link_status(program) {
-            crate::log::error("Error linking shader");
-            panic!("{}", self.gl.get_program_info_log(program));
-        }
-
-        for shader in shaders {
-            self.gl.detach_shader(program, shader);
-            self.gl.delete_shader(shader);
-        }
+        // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+        // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+        gl::BindVertexArray(0);
     }
 
     pub unsafe fn update(&self) {
-        self.gl.use_program(self.program);
-        self.gl.clear_color(0.02, 0.2, 0.3, 1.0);
-        self.gl.clear(glow::COLOR_BUFFER_BIT);
-        self.gl.draw_arrays(glow::TRIANGLES, 0, 3);
+        gl::ClearColor(0.2, 0.3, 0.3, 1.0);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
+
+        // draw our first triangle
+        gl::UseProgram(self.shaderProgram);
+        gl::BindVertexArray(self.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+        gl::DrawArrays(gl::TRIANGLES, 0, 3);
     }
 
-    pub unsafe fn destroy(&self) {
-        match self.program {
-            Some(x) => self.gl.delete_program(x),
-            _ => {}
-        }
-
-        match self.vertex_array {
-            Some(x) => self.gl.delete_vertex_array(x),
-            _ => {}
-        }
-    }
+    pub unsafe fn destroy(&self) {}
 
     pub fn swap_buffers(&self) {
         self.window.swap_buffers();
@@ -173,7 +226,7 @@ impl OpenGLRenderer {
         if cfg!(target_arch = "wasm32") {
             return "#version 300 es";
         } else if cfg!(feature = "sdl2") {
-            return "#version 330";
+            return "#version 330 core";
         } else {
             crate::log::error("Unable to determine shader version");
             panic!("Unable to determine shader version");

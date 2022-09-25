@@ -9,7 +9,8 @@ name = "DeepsEngineNeo"
 path = "src/main.rs"
 
 [dependencies]
-glow = "0.11.2"
+cgmath = "0.18.0"
+gl = "0.14.0"
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 sdl2 = { version = "0.35", optional = true }
