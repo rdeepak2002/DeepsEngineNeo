@@ -43,6 +43,7 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
     let window = video
         .window("DeepsEngine", 1024, 769)
         .opengl()
+        .allow_highdpi()
         .resizable()
         .build()
         .unwrap();

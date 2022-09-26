@@ -1,10 +1,10 @@
 use gl::types::*;
 
 use std::ffi::CString;
-use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
 use std::str;
+use std::{mem, process};
 
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
@@ -90,6 +90,7 @@ impl OpenGLRenderer {
                 str::from_utf8(&infoLog).unwrap()
             );
             crate::log::error(error_text.as_str());
+            process::exit(crate::EXIT_FAILURE)
         }
 
         // fragment shader
@@ -116,6 +117,7 @@ impl OpenGLRenderer {
                 str::from_utf8(&infoLog).unwrap()
             );
             crate::log::error(error_text.as_str());
+            process::exit(crate::EXIT_FAILURE)
         }
 
         // link shaders

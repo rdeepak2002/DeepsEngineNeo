@@ -1,12 +1,14 @@
 extern crate gl;
 extern crate sdl2;
 
-use sdl2::libc::EXIT_SUCCESS;
 use std::process;
 
 mod log;
 mod renderer;
 mod window;
+
+pub const EXIT_SUCCESS: i32 = 0;
+pub const EXIT_FAILURE: i32 = 1;
 
 fn main() {
     unsafe {
