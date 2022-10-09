@@ -26,7 +26,7 @@ pub(crate) struct SDL2Window {
     pub egui_painter: Painter,
     pub egui_state: EguiStateHandler,
     pub egui_ctx: CtxRef,
-    pub egui_needs_repaint: bool,
+    pub start_time: Instant,
 }
 
 impl Window for SDL2Window {
@@ -39,10 +39,8 @@ impl Window for SDL2Window {
             match event {
                 sdl2::event::Event::Quit { .. } => self.should_close = true,
                 _ => {
-                    if self.egui_needs_repaint {
-                        self.egui_state
-                            .process_input(&self.window, event, &mut self.egui_painter);
-                    }
+                    self.egui_state
+                        .process_input(&self.window, event, &mut self.egui_painter);
                 }
             }
         }
@@ -53,7 +51,7 @@ impl Window for SDL2Window {
     }
 
     fn update_editor(&mut self) {
-        // egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+        self.egui_state.input.time = Some(self.start_time.elapsed().as_secs_f64());
         self.egui_ctx.begin_frame(self.egui_state.input.take());
 
         egui::CentralPanel::default().show(&self.egui_ctx, |ui| {
@@ -76,12 +74,6 @@ impl Window for SDL2Window {
 
         let paint_jobs = self.egui_ctx.tessellate(paint_cmds);
 
-        if egui_output.needs_repaint {
-            self.egui_needs_repaint = true;
-        } else {
-            self.egui_needs_repaint = false;
-        }
-
         self.egui_painter
             .paint_jobs(None, paint_jobs, &self.egui_ctx.font_image());
     }
@@ -101,7 +93,7 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
     let window = video
         .window("DeepsEngine", 1024, 769)
         .opengl()
-        .allow_highdpi()
+        // .allow_highdpi()
         .resizable()
         .build()
         .unwrap();
@@ -117,6 +109,8 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
         egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
     let mut egui_ctx = egui::CtxRef::default();
 
+    let start_time = Instant::now();
+
     // create sdl window
     let sdl_window = crate::window::SDL2Window {
         egui_painter: painter,
@@ -126,7 +120,7 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
         window,
         events_loop,
         should_close: false,
-        egui_needs_repaint: false,
+        start_time,
     };
     gl::load_with(|s| video.gl_get_proc_address(s) as *const _);
     return Box::new(sdl_window);
