@@ -13,6 +13,8 @@ cgmath = "0.18.0"
 gl = "0.14.0"
 sdl2 = "0.35.2"
 emscripten_main_loop = "0.1.1"
+egui = "0.19.0"
+egui_sdl2_gl = "0.16.0"
 #imgui-opengl-renderer = "0.11.1"
 
 [build-dependencies]

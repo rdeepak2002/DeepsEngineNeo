@@ -1,10 +1,17 @@
 use gl::types::*;
 
+// use egui::Checkbox;
+use egui_backend::sdl2::video::GLProfile;
+use egui_backend::{egui, gl, sdl2};
+use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
 use std::ffi::CString;
 use std::os::raw::c_void;
 use std::ptr;
 use std::str;
+use std::time::Instant;
 use std::{mem, process};
+// Alias the backend to something less mouthful
+use egui_sdl2_gl as egui_backend;
 
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
@@ -60,6 +67,12 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn compile_shaders(&mut self) {
+        // let shader_ver = ShaderVersion::Default;
+        // let (mut painter, mut egui_state) =
+        //     egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+        // let mut egui_ctx = egui::CtxRef::default();
+        // let mut event_pump = sdl_context.event_pump().unwrap();
+
         // build and compile our shader program
         // ------------------------------------
         // vertex shader
@@ -184,9 +197,11 @@ impl OpenGLRenderer {
         gl::BindVertexArray(0);
     }
 
-    pub unsafe fn render(&self) {
+    pub unsafe fn render(&mut self) {
         gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
+
+        self.window.update_editor();
 
         // crate::log::debug("Clear screen");
 
@@ -196,6 +211,7 @@ impl OpenGLRenderer {
         gl::BindVertexArray(self.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
                                        // crate::log::debug("Binded vertex array");
         gl::DrawArrays(gl::TRIANGLES, 0, 3);
+
         // crate::log::debug("Drew arrays");
     }
 
