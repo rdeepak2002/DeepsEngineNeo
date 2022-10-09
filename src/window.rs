@@ -1,15 +1,11 @@
-// use egui::Checkbox;
-use egui_backend::sdl2::video::GLProfile;
-use egui_backend::{egui, gl, sdl2};
-use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
-use std::time::Instant;
-// Alias the backend to something less mouthful
 use crate::log;
+use egui_backend::egui::CtxRef;
+use egui_backend::painter::Painter;
+use egui_backend::EguiStateHandler;
+use egui_backend::{egui, gl, sdl2};
+use egui_backend::{DpiScaling, ShaderVersion};
 use egui_sdl2_gl as egui_backend;
-use egui_sdl2_gl::egui::CtxRef;
-use egui_sdl2_gl::painter::Painter;
-use egui_sdl2_gl::EguiStateHandler;
-use sdl2::video::SwapInterval;
+use std::time::Instant;
 
 pub(crate) trait Window {
     fn swap_buffers(&self);
@@ -27,6 +23,7 @@ pub(crate) struct SDL2Window {
     pub egui_state: EguiStateHandler,
     pub egui_ctx: CtxRef,
     pub start_time: Instant,
+    pub should_resize: bool,
 }
 
 impl Window for SDL2Window {
@@ -66,11 +63,18 @@ impl Window for SDL2Window {
         // Process ouput
         self.egui_state.process_output(&self.window, &egui_output);
 
-        // if self.egui_ctx.used_size() != self.egui_painter.screen_rect.size() {
-        //     let _size = self.egui_ctx.used_size();
-        //     let (w, h) = (_size.x as u32, _size.y as u32);
-        //     self.window.set_size(w, h).unwrap();
-        // }
+        if self.egui_ctx.used_size() != self.egui_painter.screen_rect.size() {
+            let _size = self.egui_ctx.used_size();
+            let (w, h) = (_size.x as u32, _size.y as u32);
+            self.window.set_size(w, h).unwrap();
+        }
+
+        if self.should_resize {
+            let _size = self.egui_ctx.used_size();
+            let (w, h) = (_size.x as u32, _size.y as u32);
+            self.window.set_size(w * 3, h * 3).unwrap();
+            self.should_resize = false;
+        }
 
         let paint_jobs = self.egui_ctx.tessellate(paint_cmds);
 
@@ -93,7 +97,7 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
     let window = video
         .window("DeepsEngine", 1024, 769)
         .opengl()
-        // .allow_highdpi()
+        .allow_highdpi()
         .resizable()
         .build()
         .unwrap();
@@ -105,9 +109,9 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
     if cfg!(target_os = "emscripten") {
         shader_ver = ShaderVersion::Adaptive;
     }
-    let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
+    let (painter, egui_state) =
+        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(8.0));
+    let egui_ctx = egui::CtxRef::default();
 
     let start_time = Instant::now();
 
@@ -121,6 +125,7 @@ pub(crate) fn create_sdl2_window() -> Box<dyn crate::window::Window> {
         events_loop,
         should_close: false,
         start_time,
+        should_resize: true,
     };
     gl::load_with(|s| video.gl_get_proc_address(s) as *const _);
     return Box::new(sdl_window);

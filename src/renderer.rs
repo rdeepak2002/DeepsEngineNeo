@@ -67,12 +67,6 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn compile_shaders(&mut self) {
-        // let shader_ver = ShaderVersion::Default;
-        // let (mut painter, mut egui_state) =
-        //     egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-        // let mut egui_ctx = egui::CtxRef::default();
-        // let mut event_pump = sdl_context.event_pump().unwrap();
-
         // build and compile our shader program
         // ------------------------------------
         // vertex shader
