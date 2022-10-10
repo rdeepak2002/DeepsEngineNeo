@@ -1,11 +1,8 @@
+use crate::shader::Shader;
 use gl::types::*;
-
-// use egui::Checkbox;
 use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
-// Alias the backend to something less mouthful
-use crate::shader::Shader;
 
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
@@ -27,11 +24,6 @@ impl OpenGLRenderer {
     pub fn new() -> Self {
         let window = crate::window::create_sdl2_window();
 
-        // println!("{}", std::env::current_dir());
-        // p.into_os_string().into_string()
-
-        // let current_path_ostr = std::env::current_dir().unwrap().into_os_string();
-        // let blank_project_path = Path::new(current_path_ostr.to_str().unwrap()).join("examples");
         println!(
             "{}",
             crate::project::blank_project_path()
