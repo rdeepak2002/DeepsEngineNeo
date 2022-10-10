@@ -112,18 +112,13 @@ impl OpenGLRenderer {
         gl::ClearColor(0.2, 0.3, 0.3, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
 
+        // draw editor
         self.window.update_editor();
-
-        // crate::log::debug("Clear screen");
 
         // draw our first triangle
         self.shader_program.useProgram();
-        // crate::log::debug("Using shader program");
-        gl::BindVertexArray(self.vao); // seeing as we only have a single vao there's no need to bind it every time, but we'll do so to keep things a bit more organized
-                                       // crate::log::debug("Binded vertex array");
+        gl::BindVertexArray(self.vao);
         gl::DrawArrays(gl::TRIANGLES, 0, 3);
-
-        // crate::log::debug("Drew arrays");
     }
 
     pub unsafe fn destroy(&self) {}
