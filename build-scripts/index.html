@@ -116,6 +116,10 @@
     var progressElement = document.getElementById('progress');
     var spinnerElement = document.getElementById('spinner');
     var Module = {
+        // getPreloadedPackage: function(remotePackageName, remotePackageSize) {
+        //     console.log("remote package name", remotePackageName);
+        //     console.log("remote pacakge size", remotePackageSize);
+        // },
         preRun: [],
         postRun: [],
         print: (function() {
@@ -186,7 +190,50 @@
             if (text) Module.printErr('[post-exception status] ' + text);
         };
     };
+    function download(url) {
+        return new Promise(function(resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function() { resolve(xhr.response); };
+            xhr.onerror = function(e) { reject(e); };
+            xhr.send(null);
+        });
+    }
+
+    function addScriptToDom(scriptCode) {
+        return new Promise(function(resolve, reject) {
+            var script = document.createElement('script');
+            var blob = new Blob([scriptCode], { type: 'application/javascript' });
+            var objectUrl = URL.createObjectURL(blob);
+            script.src = objectUrl;
+            script.onload = function() {
+                console.log('added js script to dom');
+                script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
+                URL.revokeObjectURL(objectUrl); // Free up the blob. Note that for debugging purposes, this can be useful to comment out to be able to read the sources in debugger.
+                resolve();
+            }
+            script.onerror = function(e) {
+                script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
+                URL.revokeObjectURL(objectUrl);
+                console.error('script failed to add to dom: ' + e);
+                reject(e.message || "(out of memory?)");
+                alert("Error loading script. Dom might have run out of memory.");
+            }
+            document.body.appendChild(script);
+        });
+    }
+
+    var dataDownload = download('/DeepsEngineNeo.data').then(function(data) {
+        console.log('downloaded data file', data);
+        Module['downloadedData'] = data;
+
+        var jsDownload = download('/DeepsEngineNeo.js').then(function(data) {
+            console.log('downloaded js file', data);
+            Module['mainScriptUrlOrBlob'] = new Blob([data]);
+            addScriptToDom(data);
+        });
+    });
 </script>
-<script type="text/javascript" src="web-dist/wasm32-unknown-emscripten/debug/DeepsEngineNeo.js"></script>
 </body>
 </html>

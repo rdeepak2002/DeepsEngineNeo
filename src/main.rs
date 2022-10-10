@@ -4,7 +4,9 @@ extern crate sdl2;
 use std::process;
 
 mod log;
+mod project;
 mod renderer;
+mod shader;
 mod window;
 
 pub const EXIT_SUCCESS: i32 = 0;

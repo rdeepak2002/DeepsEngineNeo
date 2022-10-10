@@ -1,36 +1,17 @@
 use gl::types::*;
 
 // use egui::Checkbox;
-use egui_backend::sdl2::video::GLProfile;
-use egui_backend::{egui, gl, sdl2};
-use egui_backend::{sdl2::event::Event, DpiScaling, ShaderVersion};
-use std::ffi::CString;
+use std::mem;
 use std::os::raw::c_void;
 use std::ptr;
-use std::str;
-use std::time::Instant;
-use std::{mem, process};
 // Alias the backend to something less mouthful
-use egui_sdl2_gl as egui_backend;
+use crate::shader::Shader;
 
 pub struct OpenGLRenderer {
     window: Box<dyn crate::window::Window>,
-    VAO: u32,
-    shaderProgram: u32,
+    vao: u32,
+    shader_program: Shader,
 }
-
-const vertexShaderSource: &str = r##"
-layout (location = 0) in vec3 aPos;
-void main() {
-    gl_Position = vec4(aPos, 1.0);
-}"##;
-
-const fragmentShaderSource: &str = r##"
-precision highp float;
-out vec4 FragColor;
-void main() {
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
-}"##;
 
 impl emscripten_main_loop::MainLoop for OpenGLRenderer {
     fn main_loop(&mut self) -> emscripten_main_loop::MainLoopEvent {
@@ -46,10 +27,36 @@ impl OpenGLRenderer {
     pub fn new() -> Self {
         let window = crate::window::create_sdl2_window();
 
+        // println!("{}", std::env::current_dir());
+        // p.into_os_string().into_string()
+
+        // let current_path_ostr = std::env::current_dir().unwrap().into_os_string();
+        // let blank_project_path = Path::new(current_path_ostr.to_str().unwrap()).join("examples");
+        println!(
+            "{}",
+            crate::project::blank_project_path()
+                .to_path_buf()
+                .to_str()
+                .unwrap()
+        );
+
         Self {
             window,
-            VAO: 0,
-            shaderProgram: 0,
+            vao: 0,
+            shader_program: Shader::new(
+                crate::project::blank_project_path()
+                    .join("shader")
+                    .join("shader.vert")
+                    .to_path_buf()
+                    .to_str()
+                    .unwrap(),
+                crate::project::blank_project_path()
+                    .join("shader")
+                    .join("shader.frag")
+                    .to_path_buf()
+                    .to_str()
+                    .unwrap(),
+            ),
         }
     }
 
@@ -67,89 +74,7 @@ impl OpenGLRenderer {
     }
 
     pub unsafe fn compile_shaders(&mut self) {
-        // build and compile our shader program
-        // ------------------------------------
-        // vertex shader
-        let vertexShader = gl::CreateShader(gl::VERTEX_SHADER);
-        let c_str_vert = CString::new(
-            format!("{}\n{}", self.get_glsl_version(), vertexShaderSource)
-                .as_str()
-                .as_bytes(),
-        )
-        .unwrap();
-        gl::ShaderSource(vertexShader, 1, &c_str_vert.as_ptr(), ptr::null());
-        gl::CompileShader(vertexShader);
-
-        // check for shader compile errors
-        let mut success = gl::FALSE as GLint;
-        let mut infoLog = Vec::with_capacity(512);
-        infoLog.set_len(512 - 1); // subtract 1 to skip the trailing null character
-        gl::GetShaderiv(vertexShader, gl::COMPILE_STATUS, &mut success);
-        if success != gl::TRUE as GLint {
-            gl::GetShaderInfoLog(
-                vertexShader,
-                512,
-                ptr::null_mut(),
-                infoLog.as_mut_ptr() as *mut GLchar,
-            );
-            let error_text = format!(
-                "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}",
-                str::from_utf8(&infoLog).unwrap()
-            );
-            crate::log::error(error_text.as_str());
-            process::exit(crate::EXIT_FAILURE)
-        }
-
-        // fragment shader
-        let fragmentShader = gl::CreateShader(gl::FRAGMENT_SHADER);
-        let c_str_frag = CString::new(
-            format!("{}\n{}", self.get_glsl_version(), fragmentShaderSource)
-                .as_str()
-                .as_bytes(),
-        )
-        .unwrap();
-        gl::ShaderSource(fragmentShader, 1, &c_str_frag.as_ptr(), ptr::null());
-        gl::CompileShader(fragmentShader);
-        // check for shader compile errors
-        gl::GetShaderiv(fragmentShader, gl::COMPILE_STATUS, &mut success);
-        if success != gl::TRUE as GLint {
-            gl::GetShaderInfoLog(
-                fragmentShader,
-                512,
-                ptr::null_mut(),
-                infoLog.as_mut_ptr() as *mut GLchar,
-            );
-            let error_text = format!(
-                "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{}",
-                str::from_utf8(&infoLog).unwrap()
-            );
-            crate::log::error(error_text.as_str());
-            process::exit(crate::EXIT_FAILURE)
-        }
-
-        // link shaders
-        self.shaderProgram = gl::CreateProgram();
-        gl::AttachShader(self.shaderProgram, vertexShader);
-        gl::AttachShader(self.shaderProgram, fragmentShader);
-        gl::LinkProgram(self.shaderProgram);
-        // check for linking errors
-        gl::GetProgramiv(self.shaderProgram, gl::LINK_STATUS, &mut success);
-        if success != gl::TRUE as GLint {
-            gl::GetProgramInfoLog(
-                self.shaderProgram,
-                512,
-                ptr::null_mut(),
-                infoLog.as_mut_ptr() as *mut GLchar,
-            );
-            println!(
-                "ERROR::SHADER::PROGRAM::COMPILATION_FAILED\n{}",
-                str::from_utf8(&infoLog).unwrap()
-            );
-        }
-        gl::DeleteShader(vertexShader);
-        gl::DeleteShader(fragmentShader);
-
-        gl::UseProgram(self.shaderProgram);
+        self.shader_program.useProgram();
 
         // set up vertex data (and buffer(s)) and configure vertex attributes
         // ------------------------------------------------------------------
@@ -159,13 +84,13 @@ impl OpenGLRenderer {
             0.5, -0.5, 0.0, // right
             0.0, 0.5, 0.0, // top
         ];
-        let mut VBO = 0;
-        gl::GenVertexArrays(1, &mut self.VAO);
-        gl::GenBuffers(1, &mut VBO);
+        let mut vbo = 0;
+        gl::GenVertexArrays(1, &mut self.vao);
+        gl::GenBuffers(1, &mut vbo);
         // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-        gl::BindVertexArray(self.VAO);
+        gl::BindVertexArray(self.vao);
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, VBO);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
             (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
@@ -183,10 +108,10 @@ impl OpenGLRenderer {
         );
         gl::EnableVertexAttribArray(0);
 
-        // note that this is allowed, the call to gl::VertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+        // note that this is allowed, the call to gl::VertexAttribPointer registered vbo as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
 
-        // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+        // You can unbind the vao afterwards so other vao calls won't accidentally modify this vao, but this rarely happens. Modifying other
         // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
         gl::BindVertexArray(0);
     }
@@ -200,9 +125,9 @@ impl OpenGLRenderer {
         // crate::log::debug("Clear screen");
 
         // draw our first triangle
-        gl::UseProgram(self.shaderProgram);
+        self.shader_program.useProgram();
         // crate::log::debug("Using shader program");
-        gl::BindVertexArray(self.VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+        gl::BindVertexArray(self.vao); // seeing as we only have a single vao there's no need to bind it every time, but we'll do so to keep things a bit more organized
                                        // crate::log::debug("Binded vertex array");
         gl::DrawArrays(gl::TRIANGLES, 0, 3);
 
@@ -221,13 +146,5 @@ impl OpenGLRenderer {
 
     pub fn should_close(&self) -> bool {
         return self.window.should_close();
-    }
-
-    fn get_glsl_version(&self) -> &str {
-        return if cfg!(target_os = "emscripten") {
-            "#version 300 es"
-        } else {
-            "#version 330 core"
-        };
     }
 }
